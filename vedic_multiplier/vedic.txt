@@ -1,0 +1,247 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 04.09.2023 22:33:39
+// Design Name: 
+// Module Name: vedic
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module vedic(databus,start,clk,done,product);
+input[7:0] databus;
+input start,clk;
+output[15:0] product;
+output done;
+
+wire [3:0] state;
+wire [1:0] count;
+wire ldA,ldB,select1,select2,select3,select4,ldC,Inc,start4,ldT,stop4,reset4;
+
+datapath dp(reset4,databus,clk,ldA,ldB,select1,select2,select3,select4,ldC,Inc,start4,ldT,stop4,count,product);
+controller con(reset4,ldA,ldB,ldC,select1,select2,select3,select4,Inc,start4,done,ldT,clk,stop4,start,count,state);
+
+endmodule
+
+module datapath(reset4,databus,clk,ldA,ldB,select1,select2,select3,select4,ldC,Inc,start4,ldT,stop4,count,product);
+input[7:0] databus;
+input clk,ldA,ldB,select1,select2,select3,select4,ldC,Inc,start4,ldT,reset4;
+output stop4;
+output[15:0] product;
+output [1:0] count;
+
+wire [7:0] A,B;
+wire [3:0] X,Y;
+wire [7:0] Z,T3,mout1,T,T2,mout2,addout,mout5;
+wire [3:0] mout3,mout4;
+wire [3:0] min3,min4;
+wire [7:0] min5;
+wire [3:0] T4,T5,T6;
+wire carry,carryout;
+wire [3:0] add4out;
+
+assign T3 = {4'b0000,Z[7:4]};
+assign T2 = {4'b0000,T[7:4]};
+assign min3 = mout3;
+assign min4 = mout4;
+assign min5 = mout5;
+assign T4 = 4'b0000;
+assign T5 = 4'b0001;
+assign product = {add4out,mout5[3:0],mout4,mout3};
+
+register inputregA(ldA,clk,databus,A);
+register inputregB(ldB,clk,databus,B);
+quadmux m1(A[7:4],A[3:0],X,select1);
+quadmux m2(B[7:4],B[3:0],Y,select2);
+counter c1(ldC,Inc,clk,count);
+multiplier_4 mul(start4,clk,X,Y,stop4,Z,reset4);
+ultraquadmux m3(T3,addout,mout1,select3);
+quadmux m4(Z[3:0],min3,mout3,select3);
+register inputregT(ldT,clk,mout1,T);
+ultraquadmux m5(T2,T,mout2,select4);
+quadmux m6(T[3:0],min4,mout4,select4);
+adder add(mout2,Z,addout,carry);
+ultraquadmux m7(addout,min5,mout5,select4);
+flipflop ff(carry,clk,count,carryout);
+quadmux m8(T5,T4,T6,carryout);
+adder_4bit add2(mout5[7:4],T6,add4out);
+endmodule
+
+module register(load,clk,in,out);
+input load,clk;
+input [7:0] in;
+output reg [7:0] out;
+always@(posedge clk)
+begin
+if(load == 1'b1) out <= in;
+end
+endmodule
+
+module quadmux(in1,in0,out,select);
+input [3:0] in1,in0;
+output reg[3:0] out;
+input select;
+always@(*)
+begin
+if(select == 1'b0) out <= in0;
+else out <= in1;
+end
+endmodule
+
+module counter(load,inc,clk,count);
+input load,inc,clk;
+output reg [1:0] count;
+always@(posedge clk)
+begin
+if(load == 1'b1) count <= 2'b00;
+else if(inc == 1'b1) count <= count + 2'b01; 
+end
+endmodule
+
+module ultraquadmux(in1,in0,out,select);
+input [7:0] in1,in0;
+output reg [7:0] out;
+input select;
+always@(*)
+begin
+if(select == 1'b0) out <= in0;
+else out <= in1;
+end
+endmodule
+
+module multiplier_4(start4,clock,a,b,stop4,out,reset4);
+input start4,clock,reset4;
+input[3:0] a,b;
+output reg stop4;
+output reg[7:0] out;
+
+wire [7:0] product;
+wire [3:0] q0,q1,q2,q3;
+wire [3:0] t1;
+wire [3:0] sum1,sum2;
+wire carry1,carry2;
+wire [3:0] t2;
+
+multiplier_2 mul1(a[1:0],b[1:0],q0);
+multiplier_2 mul2(a[3:2],b[1:0],q1);
+multiplier_2 mul3(a[1:0],b[3:2],q2);
+multiplier_2 mul4(a[3:2],b[3:2],q3);
+
+assign t1 = {2'b00,q0[3:2]};
+assign {carry1,sum1} = t1 + q1 + q2;
+assign t2 = {1'b0,carry1,sum1[3:2]};
+assign {carry2,sum2} = t2 + q3;
+assign product = {sum2,sum1[1:0],q0[1:0]};
+
+always@(posedge clock)
+begin
+if(start4 == 1'b1)
+begin out <= product;stop4 = 1; end
+else if(reset4 == 1'b1) stop4 <= 0;
+end
+endmodule
+
+module multiplier_2(a,b,out);
+input [1:0] a,b;
+output [3:0] out;
+wire [1:0] q0,q1,q2,q3;
+assign q0 = a[0]&b[0];
+assign q1 = a[1]&b[0];
+assign q2 = b[1]&a[0];
+assign q3 = a[1]&b[1];
+wire [1:0] t1;
+assign t1 = {1'b0,q0[1]};
+wire [1:0] sum1,sum2;
+wire carry1,carry2;
+assign {carry1,sum1} = t1 + q1 + q2;
+wire [1:0] t2;
+assign t2 = {carry1,sum1[1]};
+assign {carry2,sum2} = t2 + q3;
+assign out = {sum2,sum1[0],q0[0]};
+endmodule
+
+module adder(in1,in2,out,carry);
+input[7:0] in1,in2;
+output[7:0] out;
+output carry;
+assign {carry,out} = in1 + in2;
+endmodule
+
+module flipflop(in,clk,count,out);
+input in,clk;
+input[1:0] count;
+output reg out;
+always@(posedge clk)
+if(count == 2'b10) out <= in;
+endmodule
+
+module adder_4bit(in1,in2,out);
+input[3:0] in1,in2;
+output [3:0] out;
+wire car;
+assign {car,out} = in1 + in2;
+endmodule
+
+module controller(reset4,ldA,ldB,ldC,select1,select2,select3,select4,Inc,start4,done,ldT,clk,stop4,start,count,state);
+output reg ldA,ldB,ldC,ldT,Inc,start4,done,reset4;
+output wire select1,select2,select3,select4;
+input clk,start;
+input stop4;
+input [1:0] count;
+
+output reg[3:0] state;
+parameter s0 = 4'b0000,s1 = 4'b0001,s2 = 4'b0010,s3 = 4'b0011,s4 = 4'b0100,s5 = 4'b0101,s6 = 4'b0110,s7 = 4'b0111,s8 = 4'b1000,s9 = 4'b1001;
+
+assign select1 = count[0];
+assign select2 = count[1];
+assign select3 = (~count[0])&(~count[1]);
+assign select4 = (count[0])&(count[1]);
+
+always@(posedge clk)
+begin
+case(state)
+s0 : state <= (start == 1'b1) ? s1 : s0;
+s1 : state <= s2;
+s2 : state <= s3;
+s3 : if(stop4 == 1'b1) state <= s4;
+     else state <= s3;
+s4 : if(count == 2'b00) state <= s5;
+     else if(count == 2'b01 || count == 2'b10) state <= s7;
+     else if(count == 2'b11) state <= s9;
+s5 : state <= s6;
+s6 : state <= s3;
+s7 : state <= s8;
+s8 : state <= s3;
+s9 : state <= s0;
+default : state <= s0;     
+endcase
+end
+always@(state)
+begin
+case(state)
+s0 : begin ldA = 0;ldB = 0;ldC = 0;ldT = 0;Inc = 0;start4 = 0;reset4 = 0;done =0; end
+s1 : begin ldA = 1;ldC = 1; end
+s2 : begin ldC = 0;ldA = 0;ldB = 1; end
+s3 : begin ldB = 0;reset4 = 0;start4 = 1;Inc = 0; end
+s4 : begin start4 = 0;reset4 = 1; end
+s5 : begin ldT = 1; end
+s6 : begin ldT = 0;Inc = 1; end
+s7 : begin ldT = 1; end
+s8 : begin ldT = 0;Inc = 1; end
+s9 : begin done = 1'b1; end
+default : begin ldA = 0;ldB = 0;ldC = 0;ldT = 0;Inc = 0;start4 = 0; end
+endcase
+end
+endmodule

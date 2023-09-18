@@ -1,0 +1,45 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 04.09.2023 22:40:57
+// Design Name: 
+// Module Name: vedic_3_tb
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module vedic_3_tb;
+reg[7:0] databus;
+reg start,clk;
+wire done;
+wire[15:0] product;
+
+vedic ved(databus,start,clk,done,product);
+
+always #5 clk = ~clk;
+
+initial
+begin
+$monitor($time," Ans = %d",product);
+clk <= 1'b0;
+#13 start = 1'b1;
+#10 databus = 255;start = 1'b0;
+#10 databus = 255;
+#202 start = 1'b1;
+#10 databus = 100;start = 1'b0;
+#10 databus = 140;
+#1000 $finish;
+end
+endmodule
