@@ -1,0 +1,31 @@
+module testbench;
+reg start,clk,clear;
+reg [31:0] databus;
+wire done;
+wire [63:0] product;
+
+multiplier DUT(clear,start,clk,databus,product,done);
+
+always #5 clk = ~clk;
+
+// simulation time 3000ns , so only three operations
+
+initial
+begin
+clk <= 1'b0;
+// 1st operation
+#2 clear = 1;
+#10 start = 1'b1;clear = 0;
+#10 databus = -32'd9389462;start = 1'b0;
+#10 databus = 32'd8234328;
+// 2nd operation
+#800 start = 1'b1;
+#10 databus = 32'd14;start = 1'b0;
+#10 databus = 32'd14;
+//3rd operation
+#800 start = 1'b1;
+#10 databus = -32'd58;start = 1'b0;
+#10 databus = 32'd97;
+#1000 $finish;
+end
+endmodule

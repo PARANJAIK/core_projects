@@ -1,0 +1,33 @@
+module eight_one_mux(i0,i1,i2,i3,i4,i5,i6,i7,s0,s1,s2,out);
+input i0,i1,i2,i3,i4,i5,i6,i7;
+input s0,s1,s2;
+output out;
+assign out = ((~s0&~s1&~s2&i0) | (~s0&~s1&s2&i1) | (~s0&s1&~s2&i2) | (~s0&s1&s2&i3) | (s0&~s1&~s2&i4) | (s0&~s1&s2&i5) | (s0&s1&~s2&i6) | (s0&s1&s2&i7));
+endmodule
+
+module sequence_detector(y,x,clk,rst);
+input clk,rst,x;
+wire da,db,dc,dy;
+output reg y;
+reg a,b,c;
+eight_one_mux mux1(0,0,0,x,~x,0,0,0,a,b,c,da);
+eight_one_mux mux2(0,~x,x,~x,0,x,0,0,a,b,c,db);
+eight_one_mux mux3(x,x,x,0,1,x,0,0,a,b,c,dc);
+eight_one_mux mux4(0,0,0,0,~x,0,0,0,a,b,c,dy);
+always@(posedge clk)
+begin
+if(rst==1'b1)
+begin
+a <= 0;
+b <= 0;
+c <= 0;
+end
+else
+begin
+a <= da;
+b <= db;
+c <= dc;
+y <= dy;
+end
+end
+endmodule

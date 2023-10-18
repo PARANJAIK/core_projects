@@ -1,0 +1,276 @@
+module multiplier(clear,start,clk,databus,product,done);
+input start,clk,clear;
+input [31:0]databus;
+output done;
+output [63:0]product;
+
+datapath dp(clk,lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec,databus,zeroc,product);
+controller con(clear,clk,zeroc,start,dp.q[0],dp.qdash,lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec,done);
+endmodule
+
+module datapath(clk,lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec,databus,zeroc,product);
+input clk,lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec;
+input [31:0]databus;
+output zeroc;
+output [63:0]product;
+wire [31:0]a,q,m,negm;
+wire [7:0] count;
+wire qdash;
+wire [31:0]in_a,addout0,addout1,addout,mout3,mout4,mout5,zero_32bit,one_32bit,mcomp;
+wire [7:0] in_c;
+wire in_ff,zero_1bit,select2;
+assign product = {a,q};
+assign in_c = 8'd32;
+assign zero_32bit = 32'd0;
+assign zero_1bit = 1'b0;
+assign one_32bit = 32'd1;
+nand(select2,~q[0],qdash);
+register_32bit_1 rega(clk,lda,shift,in_a,a[31],a);
+register_32bit_1 regq(clk,ld_negm_q,shift,databus,a[0],q);
+register_32bit_2 regm(clk,ld_m_c,databus,m);
+register_32bit_2 regnegm(clk,ld_negm_q,addout1,negm);
+dff ffqdash(clk,ld_ff,in_ff,qdash);
+onescompcal compcal(m,mcomp);
+counter coun(clk,ld_m_c,dec,in_c,count,zeroc);
+adder_32bit add(mout4,mout5,addout);
+mux_32bit mux1(addout0,zero_32bit,in_a,select1);
+mux_1bit mux2(q[0],zero_1bit,in_ff,select1);
+mux_32bit mux3(m,negm,mout3,select2);
+mux_32bit mux4(a,one_32bit,mout4,select1);
+mux_32bit mux5(mout3,mcomp,mout5,select1);
+demux dmux(addout,addout0,addout1,select1);
+endmodule
+
+module register_32bit_1(clk,load,shift,in,in_shift,out);
+input clk,load,shift,in_shift;
+input[31:0] in;
+output wire [31:0] out;
+wire[31:0] regandout0,regandout1,regandout2,ff_input;
+and andreg1_1(regandout0[31],load,in[31]);
+and andreg1_2(regandout1[31],~load,shift,in_shift);
+and andreg1_3(regandout2[31],~load,~shift,out[31]);
+or orreg1_1(ff_input[31],regandout0[31],regandout1[31],regandout2[31]);
+ff ffreg1_1(clk,ff_input[31],out[31]);
+genvar i;
+generate 
+for(i = 30;i >= 0;i = i - 1)
+begin
+and andreg1x(regandout0[i],load,in[i]);
+and andreg1y(regandout1[i],~load,shift,out[i+1]);
+and andreg1z(regandout2[i],~load,~shift,out[i]);
+or orreg1x(ff_input[i],regandout0[i],regandout1[i],regandout2[i]);
+ff ffreg1x(clk,ff_input[i],out[i]);
+end
+endgenerate
+endmodule
+
+module register_32bit_2(clk,load,in,out);
+input clk,load;
+input[31:0] in;
+output wire[31:0] out;
+wire[31:0] ff_input,regandout0,regandout1;
+and andreg2_1(regandout0[31],load,in[31]);
+and andreg2_2(regandout1[31],~load,out[31]);
+or orreg2_1(ff_input[31],regandout0[31],regandout1[31]);
+ff ffreg2_1(clk,ff_input[31],out[31]);
+genvar i;
+generate 
+for(i = 30;i >= 0;i = i - 1)
+begin
+and andreg2x(regandout0[i],load,in[i]);
+and andreg2y(regandout1[i],~load,out[i]);
+or orreg2x(ff_input[i],regandout0[i],regandout1[i]);
+ff ffreg2x(clk,ff_input[i],out[i]);
+end
+endgenerate
+endmodule
+
+module dff(clk,load,in,out);
+input clk,load,in;
+output wire out;
+wire clock;
+and and_1(clock,clk,load);
+ff ff_dff(clock,in,out);
+endmodule
+
+module onescompcal(in,out);
+input[31:0] in;
+output[31:0] out;
+genvar i;
+generate
+for(i=0;i<32;i = i+1)
+begin
+not notx(out[i],in[i]);
+end
+endgenerate
+endmodule
+
+module counter(clk,load,dec,in,out,zeroc);
+input clk,load,dec;
+input[7:0] in;
+output wire[7:0] out;
+output wire zeroc;
+wire [7:0] counterandout0,counterandout1,counterandout2,counteroroutj,counteroroutk;
+assign counterandout0[0] = dec;
+and andcount_1(counterandout1[0],~dec,load,in[0]);
+and andcount_2(counterandout2[0],~dec,load,~in[0]);
+or orcount_1(counteroroutj[0],counterandout0[0],counterandout1[0]);
+or orcount_2(counteroroutk[0],counterandout0[0],counterandout2[0]);
+jk_ff jk1(clk,counteroroutj[0],counteroroutk[0],out[0]);
+genvar i;
+generate
+for(i = 1;i <8;i = i+1)
+begin
+and andcountx(counterandout0[i],counterandout0[i-1],~out[i-1]);
+and andcounty(counterandout1[i],~dec,load,in[i]);
+and andcountz(counterandout2[i],~dec,load,~in[i]);
+or orcountx(counteroroutj[i],counterandout0[i],counterandout1[i]);
+or orcounty(counteroroutk[i],counterandout0[i],counterandout2[i]);
+jk_ff jkx(clk,counteroroutj[i],counteroroutk[i],out[i]);
+end
+endgenerate
+and andcount_3(zeroc,~out[0],~out[1],~out[2],~out[3],~out[4],~out[5],~out[6],~out[7]);
+endmodule
+
+module jk_ff(clk,j,k,out);
+input clk,j,k;
+output out;
+wire d;
+wire [1:4]nandout;
+nand nand_1(nandout[1],~j,~k,out);
+nand nand_2(nandout[2],~j,k,1'b0);
+nand nand_3(nandout[3],j,~k,1'b1);
+nand nand_4(nandout[4],j,k,~out);
+nand nand_5(d,nandout[1],nandout[2],nandout[3],nandout[4]);
+ff ff_jk(clk,d,out);
+endmodule
+
+module adder_32bit(in1,in2,out);
+input[31:0] in1,in2;
+output [31:0] out;
+wire [7:0] c;
+adder_4bit_lookahead m1(in1[3:0],in2[3:0],1'b0,out[3:0],c[0]);
+adder_4bit_lookahead m2(in1[7:4],in2[7:4],c[0],out[7:4],c[1]);
+adder_4bit_lookahead m3(in1[11:8],in2[11:8],c[1],out[11:8],c[2]);
+adder_4bit_lookahead m4(in1[15:12],in2[15:12],c[2],out[15:12],c[3]);
+adder_4bit_lookahead m5(in1[19:16],in2[19:16],c[3],out[19:16],c[4]);
+adder_4bit_lookahead m6(in1[23:20],in2[23:20],c[4],out[23:20],c[5]);
+adder_4bit_lookahead m7(in1[27:24],in2[27:24],c[5],out[27:24],c[6]);
+adder_4bit_lookahead m8(in1[31:28],in2[31:28],c[6],out[31:28],c[7]);
+endmodule
+
+module adder_4bit_lookahead(a,b,cin,s,cout);
+input[3:0] a,b;
+input cin;
+output[3:0] s;
+output cout;
+wire [3:0] p,g;
+wire c1,c2,c3;
+genvar i;
+generate
+for(i = 0;i < 4;i = i + 1)
+begin
+xor xorx(p[i],a[i],b[i]);
+and andx(g[i],a[i],b[i]);
+end
+endgenerate
+assign c1 = g[0] | (cin&p[0]);
+assign c2 = g[1] | (g[0]&p[1]) | (cin&p[0]&p[1]);
+assign c3 = g[2] | (g[1]&p[2]) | (g[0]&p[1]&p[2]) | (cin&p[0]&p[1]&p[2]);
+assign cout = g[3] | (g[2]&p[3]) | (g[1]&p[2]&p[3]) | (g[0]&p[1]&p[2]&p[3]) | (cin&p[0]&p[1]&p[2]&p[3]);
+assign s[0] = p[0]^cin,s[1] = p[1]^c1,s[2] = p[2]^c2,s[3] = p[3]^c3;
+endmodule
+
+module mux_32bit(in0,in1,out,select);
+input [31:0] in0,in1;
+output wire[31:0] out;
+input select;
+wire [31:0]mux_32nandout0,mux_32nandout1;
+genvar i;
+generate
+for(i = 0;i < 32;i = i + 1)
+begin
+nand nandx(mux_32nandout0[i],in0[i],~select);
+nand nandy(mux_32nandout1[i],in1[i],select);
+nand nandz(out[i],mux_32nandout0[i],mux_32nandout1[i]);
+end
+endgenerate
+endmodule 
+
+module mux_1bit(in0,in1,out,select);
+input in0,in1;
+output wire out;
+input select;
+wire muxnandout0,muxnandout1;
+nand nand_1(muxnandout0,in0,~select);
+nand nand_2(muxnandout1,in1,select);
+nand nand_3(out,muxnandout0,muxnandout1);
+endmodule 
+
+module demux(in,out0,out1,select);
+input[31:0] in;
+output wire [31:0] out0,out1;
+input select;
+genvar i;
+generate
+for(i =0;i < 32;i = i + 1)
+begin
+and and_demux_x(out0[i],in[i],~select);
+and and_demux_y(out1[i],in[i],select);
+end
+endgenerate
+endmodule
+
+module controller(clear,clk,zeroc,start,q0,q_1,lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec,done);
+input clk,start,zeroc,q0,q_1;
+input clear;
+output wire lda,ld_m_c,ld_negm_q,ld_ff,shift,select1,dec,done;
+
+wire[2:0] state;
+wire[2:0] ff_input;
+wire[2:0] ff_input_beforeand;
+
+wire m1,m2,m3,m4,m5,m6,m7,t1,t2,t3,t4;
+and and1(m1,~state[2],~state[1],state[0]);
+and and2(m2,~state[2],state[1],~state[0]);
+and and3(m3,~state[2],state[1],state[0]);
+and and4(m4,state[2],~state[1],~state[0]);
+and and5(m5,state[2],~state[1],state[0]);
+and and6(m6,state[2],state[1],~state[0]);
+and and7(m7,state[2],state[1],state[0]);
+and and8(t1,state[2],~state[0],zeroc);
+and and9(t2,~state[2],state[1],state[0],q0,~q_1);
+and and10(t3,~state[2],~state[1],~state[0],start);
+and and11(t4,~state[2],state[1],state[0],~q0,q_1);
+and and12(ff_input[2],ff_input_beforeand[2],~clear);
+and and13(ff_input[1],ff_input_beforeand[1],~clear);
+and and14(ff_input[0],ff_input_beforeand[0],~clear);
+
+or or1(ff_input_beforeand[2],m3,m6,m5,t1);
+or or2(ff_input_beforeand[1],m1,m2,m4,t2);
+or or3(ff_input_beforeand[0],t3,m2,t4,m4);
+or or4(lda,m5,m2,m6);
+assign ld_m_c = m1;
+assign ld_negm_q = m2;
+assign shift = m4;
+or or5(ld_ff,m2,m4);
+assign select1 = m2;
+assign dec = m3;
+assign done = m7;
+
+ff ff0(clk,ff_input[0],state[0]); //z
+ff ff1(clk,ff_input[1],state[1]); //y
+ff ff2(clk,ff_input[2],state[2]); //x
+endmodule
+
+module ff(clk,d,q);  // +ve Edge-triggered D-FlipFlop
+input clk,d;
+output q;
+wire qbar,s,r,a,b;
+nand nand_1(a,b,s);
+nand nand_2(s,a,clk);
+nand nand_3(r,s,clk,b);
+nand nand_4(b,d,r);
+nand nand_5(q,qbar,s);
+nand nand_6(qbar,r,q);
+endmodule
