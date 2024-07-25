@@ -11,9 +11,9 @@ wire tx_done,rx_done,glitch;
 wire tx_clk,rx_clk;
 wire[9:0] rx_counter;
 wire[13:0] tx_counter;
-wire state,next_state;
+wire state;
 
-uart DUT(clk,tx_data,reset,transmit,Rx,Tx,receive_data,tx_done,rx_done,glitch,tx_clk,rx_clk,tx_counter,rx_counter,state,next_state);
+uart DUT(clk,tx_data,reset,transmit,Rx,Tx,receive_data,tx_done,rx_done,glitch,tx_clk,rx_clk,tx_counter,rx_counter,state);
 
 always #5 clk = ~clk;
 
@@ -32,7 +32,7 @@ endmodule
 
 
 
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> testbench of uart_tx for FSM on transmitter clock
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> uart_tx for FSM on transmitter clock
 
 module testbench_tx;
 reg clk,reset,transmit;
@@ -40,9 +40,9 @@ reg[7:0] data;
 wire Tx,done;
 //wire[13:0] baudrate_counter;
 //wire[3:0] bit_counter;
-wire state,next_state;
+wire state;
 
-uart_tx DUT(clk,data,reset,transmit,Tx,done,state,next_state);
+uart_tx DUT(clk,data,reset,transmit,Tx,done,state);
 
 always #52080 clk = ~clk;  // 100 MHz clk/10416
 
